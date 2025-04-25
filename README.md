@@ -9,7 +9,7 @@ Este proyecto muestra cómo utilizar **hilos (threads)** en Rust para realizar o
 
 ## 🚀 Requisitos  
 - Antes de comenzar, asegúrate de tener instalado Rust en tu sistema. Puedes instalarlo desde [rustup.rs](https://rustup.rs/).  
-- Descargue el IDE de RUSTROVER, Facilitara la instalacion del codigo. 
+- Descargue el IDE de RUSTROVER, Facilitara la instalacion del codigo (si instala RustRover se puede saltar el paso de instalar Rustup, pues viene incluido). 
 
 ## 📂 Instalación  
 Sigue estos pasos para configurar el proyecto correctamente:  
