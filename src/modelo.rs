@@ -8,10 +8,11 @@ pub const VIA_HORIZONTAL: graphics::Rect = graphics::Rect::new(0.0, 300.0, 600.0
 pub const VIA_VERTICAL: graphics::Rect = graphics::Rect::new(300.0, 0.0, 50.0, 600.0);
 pub const COLOR_ASFALTO: graphics::Color = graphics::Color::new(0.2, 0.2, 0.2, 1.0);
 pub const COLOR_LINEA_CENTRAL: graphics::Color = graphics::Color::new(1.0, 1.0, 0.0, 1.0);
-pub const COLOR_FONDO: graphics::Color = graphics::Color::new(0.3, 0.7, 0.3, 1.0);
+pub const COLOR_FONDO: graphics::Color = graphics::Color::new(0.5, 0.7, 0.9, 1.0); // Cielo azul
 
 pub const POSICION_SEMAFORO_VERTICAL: f32 = 250.0;
 pub const POSICION_SEMAFORO_HORIZONTAL: f32 = 360.0;
+
 
 pub const PUNTOS_APARICION: [(&str, [f32; 2]); 2] = [
     ("este", [0.0, 326.0]),     // Carril este

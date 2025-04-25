@@ -82,11 +82,14 @@ impl event::EventHandler<ggez::GameError> for EstadoPrincipal {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let mut canvas = graphics::Canvas::from_frame(ctx, modelo::COLOR_FONDO);
+        let mut canvas = graphics::Canvas::from_frame(ctx, graphics::Color::new(0.5, 0.7, 0.9, 1.0)); // Cambio de color de fondo a cielo
 
         // Inicializar el caché en el primer frame
         vista::inicializar_cache(ctx)?;
 
+        // Dibujar capas en orden (fondo primero)
+        vista::dibujar_fondo(&mut canvas, ctx)?;
+        vista::dibujar_elementos_decorativos(&mut canvas, ctx)?;
         vista::dibujar_carreteras(&mut canvas, ctx)?;
 
         // Minimizar el tiempo que mantenemos los locks
@@ -114,7 +117,7 @@ impl event::EventHandler<ggez::GameError> for EstadoPrincipal {
             lock.clone()
         };
 
-        vista::dibujar_ui(&mut canvas, carros.len(), &direccion_activa, self.fps_actual)?;
+        vista::dibujar_ui(&mut canvas, ctx, carros.len(), &direccion_activa, self.fps_actual)?;
 
         canvas.finish(ctx)?;
         Ok(())

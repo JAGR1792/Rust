@@ -3,13 +3,34 @@ use crate::modelo::*;
 use ggez::{graphics, Context, GameResult};
 use std::sync::Mutex;
 use std::sync::Once;
+use rand::Rng;
+
+// Estructuras para elementos decorativos
+struct Arbol {
+    posicion: [f32; 2],
+    escala: f32,
+    variacion: usize, // Para diferentes tipos de árboles
+}
+
+struct Edificio {
+    posicion: [f32; 2],
+    ancho: f32,
+    alto: f32,
+    color: graphics::Color,
+    ventanas: bool,
+}
 
 // Estructuras para el caché de meshes
 struct MeshCache {
     lineas_h: Vec<graphics::Mesh>,
     lineas_v: Vec<graphics::Mesh>,
     bases_semaforos: graphics::Mesh,
-    vehiculos: [graphics::Mesh; 3], // Automóvil, Camioneta, Camión
+    vehiculos: [graphics::Mesh; 3], // Carro, Camioneta, Camión
+    arboles: Vec<graphics::Mesh>,   // Arboles, redondos puntiagudos
+    edificios: Vec<Edificio>,       // Lista de edificios
+    nubes: Vec<graphics::Mesh>,     // Nubecitas
+    banco: graphics::Mesh,          // Banco de parque
+    fuente: graphics::Mesh,         // Fuente de agua
 }
 
 impl MeshCache {
@@ -64,11 +85,161 @@ impl MeshCache {
             )?,
         ];
 
+        // Crear meshes para árboles
+        let mut arboles = Vec::new();
+
+        // Árbol tipo 1 (Pino)
+        let tronco = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            graphics::Rect::new(-3.0, 0.0, 6.0, 15.0),
+            graphics::Color::new(0.6, 0.3, 0.0, 1.0),
+        )?;
+        arboles.push(tronco);
+
+        // Copa pino (triángulo)
+        let copa_pino = graphics::Mesh::new_polygon(
+            ctx,
+            graphics::DrawMode::fill(),
+            &[
+                [0.0, -25.0],
+                [-12.0, 0.0],
+                [12.0, 0.0],
+            ],
+            graphics::Color::new(0.0, 0.5, 0.0, 1.0),
+        )?;
+        arboles.push(copa_pino);
+
+        // Árbol tipo 2 (Redondo)
+        let tronco2 = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            graphics::Rect::new(-2.5, 0.0, 5.0, 12.0),
+            graphics::Color::new(0.5, 0.25, 0.0, 1.0),
+        )?;
+        arboles.push(tronco2);
+
+        // Copa redonda
+        let copa_redonda = graphics::Mesh::new_circle(
+            ctx,
+            graphics::DrawMode::fill(),
+            [0.0, -12.0],
+            10.0,
+            0.1,
+            graphics::Color::new(0.1, 0.6, 0.1, 1.0),
+        )?;
+        arboles.push(copa_redonda);
+
+        // Generar edificios
+        let mut rng = rand::rng();
+        let mut edificios = Vec::new();
+
+        // Cuadrante superior izquierdo
+        for _ in 0..6 {
+            edificios.push(Edificio {
+                posicion: [rng.random_range(20.0..250.0), rng.random_range(20.0..270.0)],
+                ancho: rng.random_range(30.0..80.0),
+                alto: rng.random_range(40.0..100.0),
+                color: graphics::Color::new(
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.9),
+                    1.0,
+                ),
+                ventanas: true,
+            });
+        }
+
+        // Cuadrante superior derecho
+        for _ in 0..6 {
+            edificios.push(Edificio {
+                posicion: [rng.random_range(370.0..550.0), rng.random_range(20.0..270.0)],
+                ancho: rng.random_range(30.0..80.0),
+                alto: rng.random_range(40.0..100.0),
+                color: graphics::Color::new(
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.9),
+                    1.0,
+                ),
+                ventanas: true,
+            });
+        }
+
+        // Cuadrante inferior izquierdo
+        for _ in 0..5 {
+            edificios.push(Edificio {
+                posicion: [rng.random_range(20.0..250.0), rng.random_range(370.0..550.0)],
+                ancho: rng.random_range(30.0..80.0),
+                alto: rng.random_range(40.0..100.0),
+                color: graphics::Color::new(
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.9),
+                    1.0,
+                ),
+                ventanas: true,
+            });
+        }
+
+        // Cuadrante inferior derecho
+        for _ in 0..5 {
+            edificios.push(Edificio {
+                posicion: [rng.random_range(370.0..550.0), rng.random_range(370.0..550.0)],
+                ancho: rng.random_range(30.0..80.0),
+                alto: rng.random_range(40.0..100.0),
+                color: graphics::Color::new(
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.8),
+                    rng.random_range(0.4..0.9),
+                    1.0,
+                ),
+                ventanas: true,
+            });
+        }
+
+        // Nubes decorativas
+        let mut nubes = Vec::new();
+        for _ in 0..3 {
+            let nube = graphics::Mesh::new_circle(
+                ctx,
+                graphics::DrawMode::fill(),
+                [0.0, 0.0],
+                rng.random_range(15.0..25.0),
+                0.1,
+                graphics::Color::new(1.0, 1.0, 1.0, 0.8),
+            )?;
+            nubes.push(nube);
+        }
+
+        // Banco de parque
+        let banco = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            graphics::Rect::new(0.0, 0.0, 30.0, 10.0),
+            graphics::Color::new(0.6, 0.4, 0.2, 1.0),
+        )?;
+
+        // Fuente de agua
+        let fuente = graphics::Mesh::new_circle(
+            ctx,
+            graphics::DrawMode::fill(),
+            [0.0, 0.0],
+            15.0,
+            0.1,
+            graphics::Color::new(0.0, 0.6, 0.9, 1.0),
+        )?;
+
         Ok(Self {
             lineas_h,
             lineas_v,
             bases_semaforos,
             vehiculos,
+            arboles,
+            edificios,
+            nubes,
+            banco,
+            fuente,
         })
     }
 }
@@ -100,6 +271,186 @@ fn get_cache<'a>() -> Option<std::sync::MutexGuard<'a, Option<MeshCache>>> {
     }
 }
 
+// vista.rs
+pub fn dibujar_fondo(canvas: &mut graphics::Canvas, ctx: &mut Context) -> GameResult {
+    // Cielo
+    let cielo = graphics::Mesh::new_rectangle(
+        ctx,
+        graphics::DrawMode::fill(),
+        graphics::Rect::new(0.0, 0.0, 600.0, 600.0),
+        graphics::Color::new(0.5, 0.7, 0.9, 1.0),
+    )?;
+    canvas.draw(&cielo, graphics::DrawParam::default());
+
+    // Pasto estático (4 rectángulos grandes alrededor de las carreteras)
+    let color_pasto = graphics::Color::new(0.2, 0.5, 0.2, 1.0);
+
+    // Zona superior (sobre la carretera horizontal)
+    let pasto_superior = graphics::Mesh::new_rectangle(
+        ctx,
+        graphics::DrawMode::fill(),
+        graphics::Rect::new(0.0, 0.0, 600.0, 295.0),
+        color_pasto,
+    )?;
+    canvas.draw(&pasto_superior, graphics::DrawParam::default());
+
+    // Zona inferior (debajo de la carretera horizontal)
+    let pasto_inferior = graphics::Mesh::new_rectangle(
+        ctx,
+        graphics::DrawMode::fill(),
+        graphics::Rect::new(0.0, 355.0, 600.0, 245.0),
+        color_pasto,
+    )?;
+    canvas.draw(&pasto_inferior, graphics::DrawParam::default());
+
+    // Zona izquierda (entre carreteras)
+    let pasto_izquierdo = graphics::Mesh::new_rectangle(
+        ctx,
+        graphics::DrawMode::fill(),
+        graphics::Rect::new(0.0, 295.0, 295.0, 60.0),
+        color_pasto,
+    )?;
+    canvas.draw(&pasto_izquierdo, graphics::DrawParam::default());
+
+    // Zona derecha (entre carreteras)
+    let pasto_derecho = graphics::Mesh::new_rectangle(
+        ctx,
+        graphics::DrawMode::fill(),
+        graphics::Rect::new(355.0, 295.0, 245.0, 60.0),
+        color_pasto,
+    )?;
+    canvas.draw(&pasto_derecho, graphics::DrawParam::default());
+
+    // Dibujar nubes (código existente)
+    if let Some(ref guard) = get_cache() {
+        if let Some(ref cache) = **guard {
+            let posiciones_nubes = [
+                [50.0, 50.0],
+                [300.0, 80.0],
+                [500.0, 60.0],
+            ];
+
+            for (i, nube) in cache.nubes.iter().enumerate() {
+                if i < posiciones_nubes.len() {
+                    canvas.draw(nube, graphics::DrawParam::new()
+                        .dest(posiciones_nubes[i])
+                        .scale([1.5, 1.0]));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn dibujar_elementos_decorativos(canvas: &mut graphics::Canvas, ctx: &mut Context) -> GameResult {
+    if let Some(ref guard) = get_cache() {
+        if let Some(ref cache) = **guard {
+            // Dibujar edificios
+            for edificio in &cache.edificios {
+                let cuerpo = graphics::Mesh::new_rectangle(
+                    ctx,
+                    graphics::DrawMode::fill(),
+                    graphics::Rect::new(0.0, 0.0, edificio.ancho, edificio.alto),
+                    edificio.color,
+                )?;
+                canvas.draw(&cuerpo, graphics::DrawParam::new()
+                    .dest(edificio.posicion));
+
+                // Añadir ventanas si corresponde
+                if edificio.ventanas {
+                    let filas = (edificio.alto / 15.0).floor() as i32;
+                    let columnas = (edificio.ancho / 15.0).floor() as i32;
+
+                    for i in 0..filas {
+                        for j in 0..columnas {
+                            let ventana = graphics::Mesh::new_rectangle(
+                                ctx,
+                                graphics::DrawMode::fill(),
+                                graphics::Rect::new(0.0, 0.0, 8.0, 8.0),
+                                graphics::Color::new(0.9, 0.9, 0.7, 1.0),
+                            )?;
+
+                            canvas.draw(&ventana, graphics::DrawParam::new()
+                                .dest([
+                                    edificio.posicion[0] + 5.0 + j as f32 * 15.0,
+                                    edificio.posicion[1] + 5.0 + i as f32 * 15.0
+                                ]));
+                        }
+                    }
+                }
+            }
+
+
+            let posiciones_arboles = [
+                // Cuadrante superior izquierdo
+                ([50.0, 50.0], 1.2, 0),
+                ([120.0, 80.0], 1.0, 1),
+                ([200.0, 40.0], 1.3, 0),
+                ([80.0, 150.0], 1.1, 1),
+                ([150.0, 200.0], 1.0, 0),
+                // Cuadrante superior derecho
+                ([400.0, 50.0], 1.2, 1),
+                ([470.0, 80.0], 1.0, 0),
+                ([500.0, 150.0], 1.3, 1),
+                ([400.0, 200.0], 1.1, 0),
+                // Cuadrante inferior izquierdo
+                ([80.0, 400.0], 1.2, 0),
+                ([150.0, 450.0], 1.0, 1),
+                ([200.0, 500.0], 1.3, 0),
+                ([50.0, 530.0], 1.1, 1),
+                // Cuadrante inferior derecho
+                ([400.0, 400.0], 1.2, 1),
+                ([470.0, 450.0], 1.0, 0),
+                ([520.0, 500.0], 1.3, 1),
+                ([450.0, 530.0], 1.1, 0),
+            ];
+
+            for ([x, y], escala, tipo) in posiciones_arboles.iter() {
+                // Dibujar tronco
+                canvas.draw(&cache.arboles[tipo * 2], graphics::DrawParam::new()
+                    .dest([*x, *y])
+                    .scale([*escala, *escala]));
+
+                // Dibujar la cabeza del arbol o su copa
+                canvas.draw(&cache.arboles[tipo * 2 + 1], graphics::DrawParam::new()
+                    .dest([*x, *y])
+                    .scale([*escala, *escala]));
+            }
+
+            //  fuente de agua en cuadrante numero 3 (de un plano cartesiano)
+            canvas.draw(&cache.fuente, graphics::DrawParam::new()
+                .dest([120.0, 380.0]));
+
+            // Añadir bordes de fuente
+            let borde_fuente = graphics::Mesh::new_circle(
+                ctx,
+                graphics::DrawMode::stroke(2.0),
+                [120.0, 380.0],
+                17.0,
+                0.1,
+                graphics::Color::new(0.7, 0.7, 0.7, 1.0),
+            )?;
+            canvas.draw(&borde_fuente, graphics::DrawParam::default());
+
+            // Añadir bancos de parque
+            let posiciones_bancos = [
+                ([100.0, 420.0], 0.0),
+                ([140.0, 420.0], 0.0),
+                ([120.0, 340.0], std::f32::consts::PI / 2.0),
+            ];
+
+            for ([x, y], rotacion) in posiciones_bancos.iter() {
+                canvas.draw(&cache.banco, graphics::DrawParam::new()
+                    .dest([*x, *y])
+                    .rotation(*rotacion));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn dibujar_carreteras(canvas: &mut graphics::Canvas, ctx: &mut Context) -> GameResult {
     // Asfalto
     canvas.draw(&graphics::Quad, graphics::DrawParam::new()
@@ -128,6 +479,53 @@ pub fn dibujar_carreteras(canvas: &mut graphics::Canvas, ctx: &mut Context) -> G
             for linea in &cache.lineas_v {
                 canvas.draw(linea, graphics::DrawParam::default());
             }
+        }
+    }
+
+    // Añadir aceras en los bordes de las carreteras
+    let aceras = [
+        // Aceras horizontales (arriba y abajo de la vía)
+        graphics::Rect::new(0.0, 290.0, 600.0, 10.0),
+        graphics::Rect::new(0.0, 350.0, 600.0, 10.0),
+        // Aceras verticales (izquierda y derecha de la vía)
+        graphics::Rect::new(290.0, 0.0, 10.0, 600.0),
+        graphics::Rect::new(350.0, 0.0, 10.0, 600.0),
+    ];
+
+    for acera in &aceras {
+        let mesh = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            *acera,
+            graphics::Color::new(0.8, 0.8, 0.8, 1.0),
+        )?;
+        canvas.draw(&mesh, graphics::DrawParam::default());
+    }
+
+    // Añadir paso de peatones
+    let posiciones_paso = [
+        // Paso horizontal (a la izquierda de la intersección)
+        ([270.0, 310.0], false),
+        // Paso vertical (debajo de la intersección)
+        ([310.0, 350.0], true),
+    ];
+
+    for ([x, y], es_vertical) in &posiciones_paso {
+        for i in 0..5 {
+            let offset = i as f32 * 8.0;
+            let paso = if *es_vertical {
+                graphics::Rect::new(*x + offset, *y, 4.0, 20.0)
+            } else {
+                graphics::Rect::new(*x, *y + offset, 20.0, 4.0)
+            };
+
+            let mesh = graphics::Mesh::new_rectangle(
+                ctx,
+                graphics::DrawMode::fill(),
+                paso,
+                graphics::Color::WHITE,
+            )?;
+            canvas.draw(&mesh, graphics::DrawParam::default());
         }
     }
 
@@ -170,6 +568,17 @@ pub fn dibujar_semaforo(canvas: &mut graphics::Canvas, ctx: &mut Context, semafo
     )?;
     canvas.draw(&luz, graphics::DrawParam::default());
 
+    // Añadir un borde para mejor visibilidad
+    let borde = graphics::Mesh::new_circle(
+        ctx,
+        graphics::DrawMode::stroke(1.0),
+        [semaforo.posicion[0], semaforo.posicion[1]],
+        8.0,
+        0.1,
+        graphics::Color::BLACK,
+    )?;
+    canvas.draw(&borde, graphics::DrawParam::default());
+
     Ok(())
 }
 
@@ -193,11 +602,64 @@ pub fn dibujar_vehiculo(canvas: &mut graphics::Canvas, ctx: &mut Context, carro:
                 .dest(carro.posicion)
                 .rotation(rotacion)
                 .color(carro.color));
+
+            // Añadir detalles al vehículo
+            match carro.tipo {
+                TipoVehiculo::Automovil => {
+                    // Ventanas para automóvil
+                    let pos_x = carro.posicion[0];
+                    let pos_y = carro.posicion[1];
+
+                    // Ajustar posición según rotación
+                    let (ventana_x, ventana_y, ventana_ancho, ventana_alto) = if carro.direccion == "este" {
+                        (pos_x + 10.0, pos_y + 3.0, 12.0, 9.0)
+                    } else {
+                        (pos_x + 3.0, pos_y + 8.0, 9.0, 12.0)
+                    };
+
+                    let ventana = graphics::Mesh::new_rectangle(
+                        ctx,
+                        graphics::DrawMode::fill(),
+                        graphics::Rect::new(0.0, 0.0, ventana_ancho, ventana_alto),
+                        graphics::Color::new(0.7, 0.8, 0.9, 1.0),
+                    )?;
+
+                    canvas.draw(&ventana, graphics::DrawParam::new()
+                        .dest([ventana_x, ventana_y])
+                        .rotation(rotacion));
+                },
+                TipoVehiculo::Camioneta | TipoVehiculo::Camion => {
+                    // Ventanas para camionetas y camiones
+                    let pos_x = carro.posicion[0];
+                    let pos_y = carro.posicion[1];
+
+                    // Ajustar posición según rotación
+                    let (ventana_x, ventana_y, ventana_ancho, ventana_alto) = if carro.direccion == "este" {
+                        let ancho = if carro.tipo == TipoVehiculo::Camioneta { 10.0 } else { 12.0 };
+                        (pos_x + 5.0, pos_y + 3.0, ancho, 12.0)
+                    } else {
+                        let ancho = if carro.tipo == TipoVehiculo::Camioneta { 12.0 } else { 12.0 };
+                        (pos_x + 3.0, pos_y + 5.0, ancho, 10.0)
+                    };
+
+                    let ventana = graphics::Mesh::new_rectangle(
+                        ctx,
+                        graphics::DrawMode::fill(),
+                        graphics::Rect::new(0.0, 0.0, ventana_ancho, ventana_alto),
+                        graphics::Color::new(0.7, 0.8, 0.9, 1.0),
+                    )?;
+
+                    canvas.draw(&ventana, graphics::DrawParam::new()
+                        .dest([ventana_x, ventana_y])
+                        .rotation(rotacion));
+                },
+            }
+
             return Ok(());
         }
     }
 
-    // Fallback si no hay caché
+
     let (ancho, alto) = match carro.tipo {
         TipoVehiculo::Automovil => (30.0, 15.0),
         TipoVehiculo::Camioneta => (35.0, 18.0),
@@ -220,10 +682,20 @@ pub fn dibujar_vehiculo(canvas: &mut graphics::Canvas, ctx: &mut Context, carro:
 
 pub fn dibujar_ui(
     canvas: &mut graphics::Canvas,
+    ctx: &mut Context,       // Añadir este parámetro
     num_vehiculos: usize,
     direccion_activa: &str,
     fps: usize
 ) -> GameResult {
+    // Panel para UI
+    let panel = graphics::Mesh::new_rectangle(
+        ctx,
+        graphics::DrawMode::fill(),
+        graphics::Rect::new(5.0, 5.0, 200.0, 80.0),
+        graphics::Color::new(0.0, 0.0, 0.0, 0.6),
+    )?;
+    canvas.draw(&panel, graphics::DrawParam::default());
+
     let texto = graphics::Text::new(format!(
         "Vehículos: {}\nDirección activa: {}\nFPS: {}",
         num_vehiculos,
@@ -232,7 +704,7 @@ pub fn dibujar_ui(
     ));
 
     canvas.draw(&texto, graphics::DrawParam::new()
-        .dest([10.0, 10.0])
+        .dest([15.0, 15.0])
         .color(graphics::Color::WHITE));
 
     Ok(())
