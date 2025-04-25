@@ -48,7 +48,7 @@ fn actualizar_semaforos(compartido: &EstadoCompartido, direccion: &str, estado: 
 // En controlador.rs, función iniciar_generador_carros
 pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>, compartido: EstadoCompartido) {
     thread::spawn(move || {
-        let mut rng = rand::rng(); // Corregir rand::rng() por rand::thread_rng()
+        let mut rng = rand::rng();
         loop {
             thread::sleep(Duration::from_secs(INTERVALO_APARICION));
 
@@ -131,7 +131,6 @@ pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>, compartido: EstadoC
         }
     });
 }
-
 pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
     thread::spawn(move || {
         let mut ultimo_update = Instant::now();
@@ -160,23 +159,64 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
                 let mut carros = compartido.carros.lock().unwrap();
                 let semaforos = compartido.semaforos.lock().unwrap();
 
-                // Procesar lotes de vehículos para mejorar rendimiento
+                // Ordenar los carros por posición según dirección
+                carros.sort_by(|a, b| {
+                    match a.direccion.cmp(&b.direccion) {
+                        std::cmp::Ordering::Equal => {
+                            // Si van en la misma dirección, ordenar por posición
+                            match a.direccion {
+                                "este" => b.posicion[0].partial_cmp(&a.posicion[0]).unwrap_or(std::cmp::Ordering::Equal),
+                                "norte" => a.posicion[1].partial_cmp(&b.posicion[1]).unwrap_or(std::cmp::Ordering::Equal),
+                                _ => std::cmp::Ordering::Equal
+                            }
+                        },
+                        other => other
+                    }
+                });
+
+                // Mantener un registro de los vehículos y sus posiciones para detectar colisiones
+                let mut posiciones_este = Vec::new();
+                let mut posiciones_norte = Vec::new();
+
+                // Procesar cada vehículo
                 for (i, carro) in carros.iter_mut().enumerate() {
                     let semaforo = semaforos.iter()
                         .find(|s| s.direccion == carro.direccion)
                         .unwrap();
 
-                    // En controlador.rs, función iniciar_motor_fisica, reemplazar el bloque "puede_avanzar"
-                    let puede_avanzar = match semaforo.estado {
-                        EstadoSemaforo::Verde => true,
-                        EstadoSemaforo::Amarillo | EstadoSemaforo::Rojo => {
-                            // Si ya pasó la intersección, debe continuar
-                            match carro.direccion {
-                                "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL,
-                                "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL,
-                                "oeste" => carro.posicion[0] < POSICION_SEMAFORO_VERTICAL,
-                                "sur" => carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL,
-                                _ => false
+                    // Determinar el espacio necesario según el tipo de vehículo
+                    let espacio_necesario = match carro.tipo {
+                        TipoVehiculo::Automovil => 50.0,
+                        TipoVehiculo::Camioneta => 50.0,
+                        TipoVehiculo::Camion => 60.0,
+                    };
+
+                    // Verificar si hay vehículos adelante que bloqueen el paso
+                    let hay_obstaculo = match carro.direccion {
+                        "este" => posiciones_este.iter().any(|&pos|
+                            pos > carro.posicion[0] && pos - carro.posicion[0] < espacio_necesario),
+                        "norte" => posiciones_norte.iter().any(|&pos|
+                            pos < carro.posicion[1] && carro.posicion[1] - pos < espacio_necesario),
+                        _ => false
+                    };
+
+                    let puede_avanzar = if hay_obstaculo {
+                        false
+                    } else {
+                        match semaforo.estado {
+                            EstadoSemaforo::Verde => true,
+                            EstadoSemaforo::Amarillo | EstadoSemaforo::Rojo => {
+                                // Si ya pasó la intersección, debe continuar
+                                // O si aún no ha llegado al semáforo, también puede avanzar hasta cierto punto
+                                match carro.direccion {
+                                    "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL ||
+                                        carro.posicion[0] < POSICION_SEMAFORO_VERTICAL - 20.0,
+                                    "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL ||
+                                        carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL + 20.0,
+                                    "oeste" => carro.posicion[0] < POSICION_SEMAFORO_VERTICAL,
+                                    "sur" => carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL,
+                                    _ => false
+                                }
                             }
                         }
                     };
@@ -188,6 +228,13 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
                             "norte" => carro.posicion[1] -= carro.velocidad * factor_movimiento,
                             _ => {}
                         }
+                    }
+
+                    // Registrar la posición para el siguiente vehículo
+                    match carro.direccion {
+                        "este" => posiciones_este.push(carro.posicion[0]),
+                        "norte" => posiciones_norte.push(carro.posicion[1]),
+                        _ => {}
                     }
 
                     // Marcar para eliminación si está fuera de pantalla
