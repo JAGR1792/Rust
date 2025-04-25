@@ -1,7 +1,8 @@
 # 🦀 Proyecto de Hilos en Rust  
 
-Este proyecto muestra cómo utilizar **hilos (threads)** en Rust para realizar operaciones concurrentes de manera eficiente.  
-
+Este proyecto muestra cómo utilizar **hilos (threads)** en Rust para realizar operaciones concurrentes de manera eficiente (Principalmente la eficiencia). 
+- Se crea una simulacion de un cruce semaforico, donde cada vehículo, y los semafóros, son un hilo diferente.
+  
 ## 📌 Características  
 - Creación y gestión de múltiples hilos.  
 - Sincronización entre hilos utilizando **Mutex** y **Arc**.  
