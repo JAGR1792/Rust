@@ -25,3 +25,5 @@ Sigue estos pasos para configurar el proyecto correctamente:
    cargo clean
    cargo update
    cargo build
+3. **Si tienen algun problema aqui esta la BIBLIA DE RUST**
+   [LA_BIBLIA](https://doc.rust-lang.org/error_codes/error-index.html)
