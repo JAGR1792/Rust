@@ -27,14 +27,14 @@ impl EstadoPrincipal {
         }).collect();
 
         let compartido = modelo::EstadoCompartido {
-            carros: Arc::new(Mutex::new(Vec::with_capacity(100))), // Pre-allocate para mejorar rendimiento
+            carros: Arc::new(Mutex::new(Vec::with_capacity(100))),
             semaforos: Arc::new(Mutex::new(semaforos)),
             direccion_activa: Arc::new(Mutex::new("este".to_string())),
             ultima_actualizacion: Arc::new(Mutex::new(Instant::now())),
         };
 
         controlador::iniciar_semaforos(compartido.clone());
-        controlador::iniciar_generador_carros(emisor);
+        controlador::iniciar_generador_carros(emisor, compartido.clone());
         controlador::iniciar_motor_fisica(compartido.clone());
 
         Ok(Self {

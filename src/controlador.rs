@@ -45,9 +45,10 @@ fn actualizar_semaforos(compartido: &EstadoCompartido, direccion: &str, estado: 
     }
 }
 
-pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>) {
+// En controlador.rs, función iniciar_generador_carros
+pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>, compartido: EstadoCompartido) {
     thread::spawn(move || {
-        let mut rng = rand::rng(); // Corregido el error de rand::rng()
+        let mut rng = rand::rng(); // Corregir rand::rng() por rand::thread_rng()
         loop {
             thread::sleep(Duration::from_secs(INTERVALO_APARICION));
 
@@ -55,6 +56,38 @@ pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>) {
             if rng.random_bool(0.8) { // 80% de probabilidad de generar
                 let idx = rng.random_range(0..2);
                 let (direccion, pos) = PUNTOS_APARICION[idx];
+
+                // Verificar si hay espacio suficiente para un nuevo vehículo
+                let espacio_suficiente = {
+                    let carros = compartido.carros.lock().unwrap();
+                    let distancia_minima = 60.0; // Distancia mínima entre vehículos
+
+                    !carros.iter().any(|carro| {
+                        // Solo verificar vehículos en la misma dirección
+                        if carro.direccion != direccion {
+                            return false;
+                        }
+
+                        // Calcular distancia según la dirección
+                        match direccion {
+                            "este" => {
+                                carro.posicion[0] < 100.0 &&
+                                    (carro.posicion[0] - pos[0]).abs() < distancia_minima
+                            },
+                            "norte" => {
+                                carro.posicion[1] > 500.0 &&
+                                    (carro.posicion[1] - pos[1]).abs() < distancia_minima
+                            },
+                            _ => false
+                        }
+                    })
+                };
+
+                if !espacio_suficiente {
+                    continue; // Esperar al siguiente ciclo
+                }
+
+                // Resto del código para generar el vehículo...
 
                 let tipo_vehiculo = match rng.random_range(0..3) {
                     0 => TipoVehiculo::Automovil,
@@ -133,17 +166,19 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
                         .find(|s| s.direccion == carro.direccion)
                         .unwrap();
 
+                    // En controlador.rs, función iniciar_motor_fisica, reemplazar el bloque "puede_avanzar"
                     let puede_avanzar = match semaforo.estado {
                         EstadoSemaforo::Verde => true,
-                        EstadoSemaforo::Amarillo => {
-                            // Verificar posición para detenerse en amarillo
+                        EstadoSemaforo::Amarillo | EstadoSemaforo::Rojo => {
+                            // Si ya pasó la intersección, debe continuar
                             match carro.direccion {
-                                "este" => carro.posicion[0] < 250.0,
-                                "norte" => carro.posicion[1] > 320.0,
+                                "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL,
+                                "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL,
+                                "oeste" => carro.posicion[0] < POSICION_SEMAFORO_VERTICAL,
+                                "sur" => carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL,
                                 _ => false
                             }
                         }
-                        EstadoSemaforo::Rojo => false
                     };
 
                     if puede_avanzar {

@@ -10,15 +10,17 @@ pub const COLOR_ASFALTO: graphics::Color = graphics::Color::new(0.2, 0.2, 0.2, 1
 pub const COLOR_LINEA_CENTRAL: graphics::Color = graphics::Color::new(1.0, 1.0, 0.0, 1.0);
 pub const COLOR_FONDO: graphics::Color = graphics::Color::new(0.3, 0.7, 0.3, 1.0);
 
-// Puntos de aparición y semáforos (solo este y norte)
+pub const POSICION_SEMAFORO_VERTICAL: f32 = 250.0;
+pub const POSICION_SEMAFORO_HORIZONTAL: f32 = 250.0;
+
 pub const PUNTOS_APARICION: [(&str, [f32; 2]); 2] = [
-    ("este", [0.0, 315.0]),     // Carril este
-    ("norte", [310.0, 570.0]),  // Carril norte
+    ("este", [0.0, 326.0]),     // Carril este
+    ("norte", [317.0, 570.0]),  // Carril norte
 ];
 
 pub const SEMAFOROS: [([f32; 2], &str); 2] = [
     ([270.0, 310.0], "este"),   // Semáforo este
-    ([310.0, 270.0], "norte"),  // Semáforo norte
+    ([310.0, 370.0], "norte"),  // Semáforo norte
 ];
 
 // Parámetros de simulación (ajustados para mejor rendimiento)
