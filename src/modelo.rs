@@ -28,8 +28,8 @@ pub const SEMAFOROS: [([f32; 2], &str); 2] = [
 pub const VELOCIDAD_VEHICULO: i32 = 40;
 pub const INTERVALO_APARICION: u64 = 3;
 pub const DURACION_VERDE: u64 = 10;
-pub const DURACION_AMARILLO: u64 = 3;
-pub const FPS_SIMULACION: u64 = 30;
+pub const DURACION_AMARILLO: u64 = 2;
+pub const FPS_SIMULACION: u64 = 120;
 
 // Estado compartido
 #[derive(Clone)]
@@ -38,6 +38,7 @@ pub struct EstadoCompartido {
     pub semaforos: Arc<Mutex<Vec<Semaforo>>>,
     pub direccion_activa: Arc<Mutex<String>>,
     pub ultima_actualizacion: Arc<Mutex<Instant>>,
+    pub contador_accidentes: Arc<Mutex<usize>>,
 }
 
 #[derive(Clone, Copy)]
@@ -47,6 +48,7 @@ pub struct Carro {
     pub color: graphics::Color,
     pub velocidad: f32,
     pub tipo: TipoVehiculo,
+    pub loco: bool,
 }
 
 #[derive(Clone)]

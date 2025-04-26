@@ -56,7 +56,7 @@ pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>, compartido: EstadoC
             if rng.random_bool(0.8) { // 80% de probabilidad de generar
                 let idx = rng.random_range(0..2);
                 let (direccion, pos) = PUNTOS_APARICION[idx];
-
+                let es_loco = rng.random_bool(0.1);
                 // Verificar si hay espacio suficiente para un nuevo vehículo
                 let espacio_suficiente = {
                     let carros = compartido.carros.lock().unwrap();
@@ -87,7 +87,7 @@ pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>, compartido: EstadoC
                     continue; // Esperar al siguiente ciclo
                 }
 
-                // Resto del código para generar el vehículo...
+
 
                 let tipo_vehiculo = match rng.random_range(0..3) {
                     0 => TipoVehiculo::Automovil,
@@ -123,7 +123,8 @@ pub fn iniciar_generador_carros(emisor: mpsc::Sender<Carro>, compartido: EstadoC
                     color,
                     velocidad: velocidad_ajustada as f32,
                     tipo: tipo_vehiculo,
-                }) {
+                    loco: es_loco,
+                }){
                     // Canal cerrado, terminar hilo
                     break;
                 }
@@ -153,8 +154,38 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
 
             // Actualizar estado de vehículos
             let mut removidos = Vec::new();
+            let mut accidentes = Vec::new();
 
-            // Scope para minimizar tiempo de lock
+            // Recolectar información de intersección antes de mover los vehículos
+            let carros_en_interseccion = {
+                let carros = compartido.carros.lock().unwrap();
+                // Recopilar los índices y direcciones de los vehículos en la intersección
+                carros.iter().enumerate()
+                    .filter_map(|(idx, carro)| {
+                        if carro.posicion[0] >= 300.0 && carro.posicion[0] <= 350.0 &&
+                            carro.posicion[1] >= 300.0 && carro.posicion[1] <= 350.0 {
+                            Some((idx, carro.direccion.clone(), carro.loco))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            };
+
+            // Detectar colisiones basadas en la información recopilada
+            for (i, dir_i, loco_i) in &carros_en_interseccion {
+                if *loco_i { // Solo los vehículos locos pueden causar accidentes
+                    for (j, dir_j, _) in &carros_en_interseccion {
+                        if i != j && dir_i != dir_j {
+                            // Colisión detectada
+                            accidentes.push(*i);
+                            accidentes.push(*j);
+                        }
+                    }
+                }
+            }
+
+            // Scope para minimizar tiempo de lock - procesamiento principal
             {
                 let mut carros = compartido.carros.lock().unwrap();
                 let semaforos = compartido.semaforos.lock().unwrap();
@@ -206,16 +237,18 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
                         match semaforo.estado {
                             EstadoSemaforo::Verde => true,
                             EstadoSemaforo::Amarillo | EstadoSemaforo::Rojo => {
-                                // Si ya pasó la intersección, debe continuar
-                                // O si aún no ha llegado al semáforo, también puede avanzar hasta cierto punto
-                                match carro.direccion {
-                                    "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL ||
-                                        carro.posicion[0] < POSICION_SEMAFORO_VERTICAL - 20.0,
-                                    "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL ||
-                                        carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL + 20.0,
-                                    "oeste" => carro.posicion[0] < POSICION_SEMAFORO_VERTICAL,
-                                    "sur" => carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL,
-                                    _ => false
+                                if carro.loco {
+                                    true
+                                } else {
+                                    match carro.direccion {
+                                        "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL ||
+                                            carro.posicion[0] < POSICION_SEMAFORO_VERTICAL - 20.0,
+                                        "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL ||
+                                            carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL + 20.0,
+                                        "oeste" => carro.posicion[0] < POSICION_SEMAFORO_VERTICAL,
+                                        "sur" => carro.posicion[1] > POSICION_SEMAFORO_HORIZONTAL,
+                                        _ => false
+                                    }
                                 }
                             }
                         }
@@ -256,6 +289,25 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido) {
             {
                 let mut ultima = compartido.ultima_actualizacion.lock().unwrap();
                 *ultima = ahora;
+            }
+
+            // Gestionar accidentes - ahora con su propio scope y lock de carros
+            if !accidentes.is_empty() {
+                let mut contador = compartido.contador_accidentes.lock().unwrap();
+                *contador += 1;
+
+                // Lock carros de nuevo para eliminar los vehículos accidentados
+                {
+                    let mut carros = compartido.carros.lock().unwrap();
+                    // Eliminar vehículos accidentados
+                    accidentes.sort_by(|a, b| b.cmp(a));
+                    accidentes.dedup(); // Eliminar duplicados
+                    for idx in accidentes {
+                        if idx < carros.len() {
+                            carros.swap_remove(idx);
+                        }
+                    }
+                }
             }
         }
     });

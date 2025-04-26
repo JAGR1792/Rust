@@ -31,6 +31,7 @@ impl EstadoPrincipal {
             semaforos: Arc::new(Mutex::new(semaforos)),
             direccion_activa: Arc::new(Mutex::new("este".to_string())),
             ultima_actualizacion: Arc::new(Mutex::new(Instant::now())),
+            contador_accidentes: Arc::new(Mutex::new(0)),
         };
 
         controlador::iniciar_semaforos(compartido.clone());
@@ -117,7 +118,12 @@ impl event::EventHandler<ggez::GameError> for EstadoPrincipal {
             lock.clone()
         };
 
-        vista::dibujar_ui(&mut canvas, ctx, carros.len(), &direccion_activa, self.fps_actual)?;
+        let num_accidentes = {
+            let lock = self.compartido.contador_accidentes.lock().unwrap();
+            *lock
+        };
+
+        vista::dibujar_ui(&mut canvas, ctx, carros.len(), &direccion_activa, self.fps_actual, num_accidentes)?;
 
         canvas.finish(ctx)?;
         Ok(())

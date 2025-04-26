@@ -198,19 +198,7 @@ impl MeshCache {
             });
         }
 
-        // Nubes decorativas
-        let mut nubes = Vec::new();
-        for _ in 0..3 {
-            let nube = graphics::Mesh::new_circle(
-                ctx,
-                graphics::DrawMode::fill(),
-                [0.0, 0.0],
-                rng.random_range(15.0..25.0),
-                0.1,
-                graphics::Color::new(1.0, 1.0, 1.0, 0.8),
-            )?;
-            nubes.push(nube);
-        }
+
 
         // Banco de parque
         let banco = graphics::Mesh::new_rectangle(
@@ -237,7 +225,7 @@ impl MeshCache {
             vehiculos,
             arboles,
             edificios,
-            nubes,
+            nubes: vec![],
             banco,
             fuente,
         })
@@ -418,7 +406,7 @@ pub fn dibujar_elementos_decorativos(canvas: &mut graphics::Canvas, ctx: &mut Co
                     .scale([*escala, *escala]));
             }
 
-            //  fuente de agua en cuadrante numero 3 (de un plano cartesiano)
+            //  fuente de agua en cuadrante número 3 (de un plano cartesiano)
             canvas.draw(&cache.fuente, graphics::DrawParam::new()
                 .dest([120.0, 380.0]));
 
@@ -595,6 +583,33 @@ pub fn dibujar_vehiculo(canvas: &mut graphics::Canvas, ctx: &mut Context, carro:
         _ => 0.0,
     };
 
+    if carro.loco {
+        match carro.tipo {
+            TipoVehiculo::Automovil => 0,
+            TipoVehiculo::Camioneta => 1,
+            TipoVehiculo::Camion => 2,
+        };
+
+        // Dimensiones según tipo de vehículo
+        let (ancho, alto) = match carro.tipo {
+            TipoVehiculo::Automovil => (34.0, 19.0),
+            TipoVehiculo::Camioneta => (39.0, 22.0),
+            TipoVehiculo::Camion => (49.0, 24.0),
+        };
+
+        // Halo rojo para indicar vehículo loco
+        let halo = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::stroke(2.0),
+            graphics::Rect::new(-2.0, -2.0, ancho, alto),
+            graphics::Color::RED,
+        )?;
+
+        canvas.draw(&halo, graphics::DrawParam::new()
+            .dest(carro.posicion)
+            .rotation(rotacion));
+    }
+
     // Usar el mesh del vehículo desde caché
     if let Some(ref guard) = get_cache() {
         if let Some(ref cache) = **guard {
@@ -685,27 +700,45 @@ pub fn dibujar_ui(
     ctx: &mut Context,       // Añadir este parámetro
     num_vehiculos: usize,
     direccion_activa: &str,
-    fps: usize
+    fps: usize,
+    num_accidentes: usize
 ) -> GameResult {
     // Panel para UI
     let panel = graphics::Mesh::new_rectangle(
         ctx,
         graphics::DrawMode::fill(),
-        graphics::Rect::new(5.0, 5.0, 200.0, 80.0),
+        graphics::Rect::new(5.0, 5.0, 200.0, 100.0),
         graphics::Color::new(0.0, 0.0, 0.0, 0.6),
     )?;
     canvas.draw(&panel, graphics::DrawParam::default());
 
     let texto = graphics::Text::new(format!(
-        "Vehículos: {}\nDirección activa: {}\nFPS: {}",
+        "Vehículos: {}\nDirección activa: {}\nFPS: {}\nAccidentes: {}",  // <-- Añadir accidentes
         num_vehiculos,
         direccion_activa,
-        fps
+        fps,
+        num_accidentes
     ));
 
     canvas.draw(&texto, graphics::DrawParam::new()
         .dest([15.0, 15.0])
         .color(graphics::Color::WHITE));
+
+    if num_accidentes > 0 {
+        let panel_alerta = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            graphics::Rect::new(400.0, 5.0, 195.0, 30.0),
+            graphics::Color::new(0.8, 0.0, 0.0, 0.8),  // Rojo semi-transparente
+        )?;
+        canvas.draw(&panel_alerta, graphics::DrawParam::default());
+
+        let texto_alerta = graphics::Text::new("¡Cuidado! Conductores locos");
+        canvas.draw(&texto_alerta, graphics::DrawParam::new()
+            .dest([410.0, 10.0])
+            .color(graphics::Color::WHITE));
+    }
+
 
     Ok(())
 }
