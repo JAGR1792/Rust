@@ -212,29 +212,46 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido, emisor_emergencia: mps
             }
 
             // Detección de colisiones
-            let carros_en_interseccion = {
-                let carros = compartido.carros.lock().unwrap();
-                carros.iter().enumerate()
-                    .filter_map(|(idx, carro)| {
-                        if carro.posicion[0] >= 300.0 && carro.posicion[0] <= 350.0 &&
-                            carro.posicion[1] >= 300.0 && carro.posicion[1] <= 350.0 {
-                            Some((idx, carro.direccion.clone(), carro.loco))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            };
+            {
+                let mut carros = compartido.carros.lock().unwrap();
+                let mut accidentes_temp = Vec::new();
 
-            for (i, dir_i, loco_i) in &carros_en_interseccion {
-                if *loco_i {
-                    for (j, dir_j, _) in &carros_en_interseccion {
-                        if i != j && dir_i != dir_j {
-                            accidentes.push(*i);
-                            accidentes.push(*j);
+                // Definir radios de colisión según tipo de vehículo
+                for i in 0..carros.len() {
+                    let radio_i = match carros[i].tipo {
+                        TipoVehiculo::Automovil => 15.0,
+                        TipoVehiculo::Camioneta => 20.0,
+                        TipoVehiculo::Camion => 25.0,
+                        _ => 15.0,
+                    };
+
+                    for j in (i + 1)..carros.len() {
+                        let radio_j = match carros[j].tipo {
+                            TipoVehiculo::Automovil => 15.0,
+                            TipoVehiculo::Camioneta => 20.0,
+                            TipoVehiculo::Camion => 25.0,
+                            _ => 15.0,
+                        };
+
+                        let dx = carros[i].posicion[0] - carros[j].posicion[0];
+                        let dy = carros[i].posicion[1] - carros[j].posicion[1];
+                        let distancia = (dx * dx + dy * dy).sqrt();
+
+                        // Verificar colisión y que no sean vehículos de emergencia
+                        if distancia < (radio_i + radio_j)
+                            && !matches!(carros[i].tipo, TipoVehiculo::Ambulancia | TipoVehiculo::Policia)
+                            && !matches!(carros[j].tipo, TipoVehiculo::Ambulancia | TipoVehiculo::Policia)
+                        {
+                            accidentes_temp.push(i);
+                            accidentes_temp.push(j);
                         }
                     }
                 }
+
+                // Eliminar duplicados y ordenar
+                accidentes_temp.sort();
+                accidentes_temp.dedup();
+                accidentes = accidentes_temp.clone();
             }
 
             // Manejo de nuevo accidente
@@ -354,7 +371,7 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido, emisor_emergencia: mps
                             _ => false
                         };
 
-                        // CORRECCIÓN: Verificar si el vehículo ya pasó el semáforo
+
                         let ya_paso_semaforo = match carro.direccion {
                             "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL + 30.0, // Ya pasó el semáforo
                             "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL - 30.0, // Ya pasó el semáforo
@@ -364,7 +381,7 @@ pub fn iniciar_motor_fisica(compartido: EstadoCompartido, emisor_emergencia: mps
                         let puede_avanzar = if hay_obstaculo {
                             false
                         } else if ya_paso_semaforo {
-                            // CORRECCIÓN: Si ya pasó el semáforo, siempre debe avanzar
+
                             true
                         } else {
                             match semaforo.estado {
@@ -434,15 +451,22 @@ pub fn debe_detenerse(carro: &Carro, semaforos: &[Semaforo]) -> bool {
     let semaforo_relevante = semaforos.iter()
         .find(|s| s.direccion == carro.direccion);
 
-    // Verifica si el carro ya pasó la intersección
-    let ya_paso_interseccion = match carro.direccion {
-        "este" => carro.posicion[0] > POSICION_SEMAFORO_VERTICAL + 30.0,
-        "norte" => carro.posicion[1] < POSICION_SEMAFORO_HORIZONTAL - 30.0,
+    // Nueva definición de límites de intersección
+    let (limite_entrada, limite_salida) = match carro.direccion {
+        "este" => (POSICION_SEMAFORO_VERTICAL + 30.0, POSICION_SEMAFORO_VERTICAL - 30.0),
+        "norte" => (POSICION_SEMAFORO_HORIZONTAL - 30.0, POSICION_SEMAFORO_HORIZONTAL + 30.0),
+        _ => (0.0, 0.0)
+    };
+
+    // Verificar si ya está dentro de la intersección
+    let en_interseccion = match carro.direccion {
+        "este" => carro.posicion[0] > limite_entrada && carro.posicion[0] < limite_salida,
+        "norte" => carro.posicion[1] < limite_entrada && carro.posicion[1] > limite_salida,
         _ => false
     };
 
-    // Si ya pasó la intersección, nunca debe detenerse
-    if ya_paso_interseccion {
+    // Si está dentro de la intersección, nunca debe detenerse
+    if en_interseccion {
         return false;
     }
 

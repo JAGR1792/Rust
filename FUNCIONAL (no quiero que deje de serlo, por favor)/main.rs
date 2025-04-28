@@ -18,7 +18,7 @@ struct EstadoPrincipal {
     ultima_medicion_fps: Instant,
     fps_actual: usize,
     musica: audio::Source,
-    sirena: audio::Source,  // 🔥 Nueva: la sirena de emergencia
+    sirena: audio::Source, 
     emergencia_activa: bool,
 }
 
@@ -58,7 +58,7 @@ impl EstadoPrincipal {
         // Configurar para repetir
         musica.set_repeat(true);
         // Reproducir en el canal de música 
-        musica.play(ctx);
+        musica.play(ctx).expect("TODO: panic message");
         
         let mut sirena = audio::Source::new(ctx, "/sirena.ogg")?; // 🔥
         sirena.set_repeat(true);
