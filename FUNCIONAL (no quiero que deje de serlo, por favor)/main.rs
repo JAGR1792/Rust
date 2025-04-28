@@ -3,9 +3,11 @@ mod modelo;
 mod controlador;
 mod vista;
 
-use ggez::{conf, event, graphics, Context, GameResult};
+use ggez::{conf, event, graphics, Context, GameResult, audio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Instant;
+use std::path::Path;
+use ggez::audio::SoundSource;
 
 struct EstadoPrincipal {
     compartido: modelo::EstadoCompartido,
@@ -15,10 +17,13 @@ struct EstadoPrincipal {
     fps_contador: usize,
     ultima_medicion_fps: Instant,
     fps_actual: usize,
+    musica: audio::Source,
+    sirena: audio::Source,  // 🔥 Nueva: la sirena de emergencia
+    emergencia_activa: bool,
 }
 
 impl EstadoPrincipal {
-    fn new() -> GameResult<Self> {
+    fn new(ctx: &mut Context) -> GameResult<Self> {
         // Canal para vehículos normales
         let (emisor_carros, receptor_carros) = mpsc::channel();
 
@@ -48,6 +53,16 @@ impl EstadoPrincipal {
         controlador::iniciar_generador_carros(emisor_carros, compartido.clone());
         controlador::iniciar_motor_fisica(compartido.clone(), emisor_emergencia);
 
+        // Cargar y reproducir música (solución definitiva para ggez 0.9.3)
+        let mut musica = audio::Source::new(ctx, "/L'amore_dice_ciao.ogg")?;
+        // Configurar para repetir
+        musica.set_repeat(true);
+        // Reproducir en el canal de música 
+        musica.play(ctx);
+        
+        let mut sirena = audio::Source::new(ctx, "/sirena.ogg")?; // 🔥
+        sirena.set_repeat(true);
+        
         Ok(Self {
             compartido,
             receptor_carros,
@@ -56,12 +71,15 @@ impl EstadoPrincipal {
             fps_contador: 0,
             ultima_medicion_fps: Instant::now(),
             fps_actual: 0,
+            musica,  
+            sirena,
+            emergencia_activa: false,
         })
     }
 }
 
 impl event::EventHandler<ggez::GameError> for EstadoPrincipal {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
         // Limitar actualizaciones a 60 por segundo para ahorrar CPU
         let ahora = Instant::now();
         let delta = ahora.duration_since(self.ultimo_update);
@@ -78,12 +96,24 @@ impl event::EventHandler<ggez::GameError> for EstadoPrincipal {
             while let Ok(carro) = self.receptor_emergencia.try_recv() {
                 emergencias.push(carro);
             }
-
             // Actualizar solo si hay nuevos vehículos
             if !nuevos_carros.is_empty() || !emergencias.is_empty() {
                 let mut carros = self.compartido.carros.lock().unwrap();
                 carros.extend(nuevos_carros);
                 carros.extend(emergencias);
+            }
+
+            {
+                let carros = self.compartido.carros.lock().unwrap();
+                let hay_emergencias = carros.iter().any(|c| matches!(c.tipo, modelo::TipoVehiculo::Ambulancia | modelo::TipoVehiculo::Policia));
+
+                if hay_emergencias && !self.emergencia_activa {
+                    self.sirena.play(ctx)?;
+                    self.emergencia_activa = true;
+                } else if !hay_emergencias && self.emergencia_activa {
+                    self.sirena.stop(ctx)?;
+                    self.emergencia_activa = false;
+                }
             }
 
             self.ultimo_update = ahora;
@@ -164,11 +194,19 @@ impl event::EventHandler<ggez::GameError> for EstadoPrincipal {
 }
 
 fn main() -> GameResult {
-    let (ctx, event_loop) = ggez::ContextBuilder::new("simulacion-trafico", "rust")
+    // Configurar la ruta de recursos
+    let resource_dir = if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        Path::new(&manifest_dir).join("resources")
+    } else {
+        Path::new("./resources").to_path_buf()
+    };
+
+    let (mut ctx, event_loop) = ggez::ContextBuilder::new("simulacion-trafico", "rust")
         .window_setup(conf::WindowSetup::default().title("Simulación de Tráfico"))
         .window_mode(conf::WindowMode::default().dimensions(600.0, 600.0))
+        .add_resource_path(resource_dir)
         .build()?;
 
-    let estado = EstadoPrincipal::new()?;
+    let estado = EstadoPrincipal::new(&mut ctx)?;
     event::run(ctx, event_loop, estado)
 }
